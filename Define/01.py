@@ -46,6 +46,6 @@ z = x.view(-1,8)  # -1 表示由其他维度推断.
 print(x.size(),y.size(),z.size())  # torch.Size([4, 4]) torch.Size([16]) torch.Size([2, 8])
 
 
-x = torch.randn(1,2)
+x = torch.randn(1)   # randn和rand的区别.
 print(x)
 print(x.item())
