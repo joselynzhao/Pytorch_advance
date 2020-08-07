@@ -41,7 +41,7 @@ print(x[:,1])
 
 # 想要改变一个tensor的大小
 x = torch.rand(4,4)
-y = x.view(16)
+y = x.view(16)  # 相当于是resize
 z = x.view(-1,8)  # -1 表示由其他维度推断.
 print(x.size(),y.size(),z.size())  # torch.Size([4, 4]) torch.Size([16]) torch.Size([2, 8])
 
