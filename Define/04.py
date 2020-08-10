@@ -68,7 +68,7 @@ images,labels = dataiter.next() # 我怎么知道这个迭代器返回的数据�
 
 # show image
 imshow(torchvision.utils.make_grid(images)) #make_grid函数???
-print(''.join('%5s'% classes[labels[j]] for j in range(4))) #为什么是4呢? batch_size = 4 
+print(''.join('%5s'% classes[labels[j]] for j in range(4))) #为什么是4呢? batch_size = 4
 
 '''定义一个卷积神经网络 在这之前先 从神经网络章节 复制神经网络，并修改它为3通道的图片(在此之前它被定义为1通道)'''
 import  torch.nn as nn
