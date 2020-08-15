@@ -102,21 +102,21 @@ optimizer = optim.SGD(net.parameters(),lr = 0.001, momentum = 0.9)  #决定了�
 '''训练网络 这里事情开始变得有趣，
 我们只需要在数据迭代器上循环传给网络和优化器 输入就可以。'''
 
-for epoch in range(2):
-    running_loss = 0.0
-    for i, data in enumerate(trainloader,0):
-        inputs,labels = data
-        optimizer.zero_grad()
-        output = net(inputs)
-        loss = criterion(output,labels)
-        loss.backward()
-        optimizer.step()
-
-        running_loss +=loss.item()
-        if i%2000 == 1999:
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 2000))
-            running_loss = 0.0
+# for epoch in range(2):
+#     running_loss = 0.0
+#     for i, data in enumerate(trainloader,0):
+#         inputs,labels = data
+#         optimizer.zero_grad()
+#         output = net(inputs)
+#         loss = criterion(output,labels)
+#         loss.backward()
+#         optimizer.step()
+#
+#         running_loss +=loss.item()
+#         if i%2000 == 1999:
+#             print('[%d, %5d] loss: %.3f' %
+#                   (epoch + 1, i + 1, running_loss / 2000))
+#             running_loss = 0.0
 
 print('Finished Training')
 
@@ -126,5 +126,52 @@ outputs = net(images)
 网络就越认为图像是属于这一类别。所以让我们打印其中最相似类别类标：'''
 _, predicted = torch.max(outputs, 1)
 
-print('Predicted: ', ' '.join('%5s' % classes[predicted[j]]
-                              for j in range(4)))
+print('Predicted: ', ' '.join('%5s' % classes[predicted[j]]for j in range(4)))
+
+
+# 结果看起开非常好，让我们看看网络在整个数据集上的表现。
+correct = 0
+total = 0
+with torch.no_grad():
+    for data in testloader:
+        images, labels = data
+        outputs = net(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+print('Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct / total))
+
+'''这看起来比随机预测要好，随机预测的准确率为10%（随机预测出为10类中的哪一类）。看来网络学到了东西。'''
+# class_correct = list(0. for i in range(10))
+# class_total = list(0. for i in range(10))
+# with torch.no_grad():
+#     for data in testloader:
+#         images,labels = data
+#         outputs = net(images)
+#         _,predicted = torch.max(outputs,1)
+#         c = (predicted == labels).squeeze()
+#         for i in range(4):
+#             label = labels[i]
+#             class_correct[label] +=c[i].item()
+#             class_correct[label] +=1
+#
+# for i in range(10):
+#     print('Accuracy of %5s : %2d %%' % (
+#         classes[i], 100 * class_correct[i] / class_total[i]))
+
+
+'''所以接下来呢？
+我们怎么在GPU上跑这些神经网络？
+
+在GPU上训练 就像你怎么把一个张量转移到GPU上一样，你要将神经网络转到GPU上。 
+如果CUDA可以用，让我们首先定义下我们的设备为第一个可见的cuda设备。'''
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+print(device)
+
+'''接着这些方法会递归地遍历所有模块，并将它们的参数和缓冲器转换为CUDA张量。'''
+net.to(device)
+'''记住你也必须在每一个步骤向GPU发送输入和目标：'''
+inputs, labels = inputs.to(device), labels.to(device)
