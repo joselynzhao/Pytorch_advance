@@ -154,6 +154,6 @@ class Rescale(object):
         return {'image':img,'landmarks':landmarks}
 
 class Rescale(object):
-
+    pass
 
 
