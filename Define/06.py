@@ -153,7 +153,116 @@ class Rescale(object):
         landmarks = landmarks * [new_w/w,new_h/h] #对landmarks的坐标进行放缩.
         return {'image':img,'landmarks':landmarks}
 
-class Rescale(object):
-    pass
+class RandomCrop(object):
+    """随机裁剪样本中的图像.
+
+    Args:
+       output_size（tuple或int）：所需的输出大小。 如果是int，方形裁剪是。
+    """
+    def __init__(self,output_size):
+        assert isinstance(output_size,(int,tuple))
+        if isinstance(output_size,int): # 判断类型
+            self.output_size = (output_size,output_size)
+        else:
+            self.output_size = output_size
+    def __call__(self,sample):
+        image,landmarks = sample['image'],sample['landmarks']
+        h,w = image.shape[:2]
+        new_h,new_w = self.output_size
+
+        top = np.random.randint(0,h-new_h) # 在这个范围内生成一个证书，要保证高度
+        left = np.random.randint(0,w-new_w)
+
+        image = image[top:top+new_h,left:left+new_w]
+        landmarks = landmarks -[left,top]
+
+        return {'image':image, 'landmarks':landmarks}
+
+class ToTensor(object):
+    """将样本中的ndarrays转换为Tensors."""
+    def __call__(self, sample):
+        image,landmarks = sample['image'],sample['landmarks']
+         # 交换颜色轴因为
+        # numpy包的图片是: H * W * C
+        # torch包的图片是: C * H * W
+        image = image.transpose((2,0,1))
+        return {'image':torch.from_numpy(image),'landmarks':torch.from_numpy(landmarks)}
+
+'''8.组合转换
+接下来我们把这些转换应用到一个例子上。
+
+我们想要把图像的短边调整为256，
+然后随机裁剪(randomcrop)为224大小的正方形。
+也就是说，我们打算组合一个Rescale和 RandomCrop的变换。 
+我们可以调用一个简单的类 torchvision.transforms.Compose来实现这一操作。
+具体实现如下图：'''
+
+scale = Rescale(256)
+crop = RandomCrop(128)
+composed = transforms.Compose([Rescale(256),RandomCrop(224)])
+
+# 在样本上应用上述的每个变换。
+fig  = plt.figure()
+sample = face_dataset[65]
+for i ,tsfrm in enumerate([scale,crop,composed]):
+    transformed_sample = tsfrm(sample)  # 居然可以枚举出函数．
+    ax = plt.subplot(1,3,i+1)
+    plt.tight_layout() # 这个函数是什么意思
+    ax.set_title(type(tsfrm).__name__) # 难道是变量名称吗
+    show_landmarks(**transformed_sample)
+plt.show()
 
 
+'''9.迭代数据集
+让我们把这些整合起来以创建一个带组合转换的数据集。
+总结一下，每次这个数据集被采样时: * 及时地从文件中读取图片 * 对读取的图片应用转换 * 由于其中一步操作是随机的 (randomcrop) , 数据被增强了'''
+
+'''我们可以像之前那样使用for i in range循环来对所有创建的数据集执行同样的操作。'''
+transformed_dataset = FaceLandmarksDateset(csv_file='data/faces/face_landmarks.csv',root_dir='data/faces/',transform=transforms.Compose([
+    Rescale(256),
+    RandomCrop(224),
+    ToTensor()
+]))
+
+# for i in range(len(transformed_dataset)):
+#     sample = transformed_dataset[i]
+#     print(i,sample['image'].size(), sample['landmarks'].size())
+#
+#     if  i==3:
+#         break
+
+
+'''但是，对所有数据集简单的使用for循环牺牲了许多功能，
+尤其是: * 批量处理数据 * 打乱数据 * 使用多线程multiprocessingworker 并行加载数据。'''
+
+'''torch.utils.data.DataLoader是一个提供上述所有这些功能的迭代器。
+   下面使用的参数必须是清楚的。一个值得关注的参数是collate_fn, 可以通过它来决定如何对数据进行批处理。
+   但是绝大多数情况下默认值就能运行良好。'''
+
+dataloader = DataLoader(transformed_dataset,batch_size=4,shuffle=True,num_workers=4)
+
+# 辅助功能显示批次
+def show_landmarks_batch(sample_batched):
+    """Show image with landmarks for a batch of samples."""
+    images_batch,landmarks_batch = sample_batched['image'],sample_batched['landmarks']
+    batch_size = len(images_batch)
+    im_size = images_batch.size(2)  # 为什么是２呢？
+    grid_border_size = 2
+
+    grid = utils.make_grid(images_batch)
+    plt.imshow(grid.numpy().transpose((1,2,0))) # 交换纬度．　
+
+    for i in range(batch_size):
+        plt.scatter(landmarks_batch[i,:,0].numpy()+i * im_size +(i+1) * grid_border_size, landmarks_batch[i,:,1].numpy()+grid_border_size,s = 10,marker='.',c='r')
+        plt.title('Batch from dataloader')
+
+for i_batch,sample_batched in enumerate(dataloader):
+    print(i_batch,sample_batched['image'].size(),sample_batched['landmarks'].size())
+
+    if i_batch==3:
+        plt.figure()
+        show_landmarks_batch(sample_batched)
+        plt.axis('off')
+        plt.ioff()
+        plt.show()
+        break
